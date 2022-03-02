@@ -43,7 +43,7 @@ class NeuralCDE(torch.nn.Module):
         self.readout = torch.nn.Linear(hidden_channels, output_channels)
         self.interpolation = interpolation
 
-    def forward(self, coeffs):
+    def forward(self, coeffs, **kwargs):
         if self.interpolation == 'cubic':
             X = torchcde.CubicSpline(coeffs)
         elif self.interpolation == 'linear':
@@ -53,7 +53,12 @@ class NeuralCDE(torch.nn.Module):
 
         # Initial hidden state should be a function of the first observation.
         X0 = X.evaluate(X.interval[0])
-        z0 = self.initial(X0)
+        if self.gen:
+            noise = torch.randn(X0.shape[0],1,device=X0.device)
+            hidden_stae = kwargs['z']
+            z0 = self.initial(X0, hidden_state, noise)
+        else:
+            z0 = self.initial(X0)
 
         # Solve the CDE.
         z = torchcde.cdeint(X=X, z0=z0, func=self.func, t=X.grid_points)
