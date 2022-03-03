@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import signatory
+import torchcde
 from typing import List
 
 from lib.networks import FFN
@@ -55,7 +56,7 @@ class NeuralCDE(torch.nn.Module):
         X0 = X.evaluate(X.interval[0])
         if self.gen:
             noise = torch.randn(X0.shape[0],1,device=X0.device)
-            hidden_stae = kwargs['z']
+            hidden_state = kwargs['z']
             z0 = self.initial(X0, hidden_state, noise)
         else:
             z0 = self.initial(X0)
