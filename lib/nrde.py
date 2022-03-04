@@ -62,7 +62,7 @@ class NeuralCDE(torch.nn.Module):
             z0 = self.initial(X0)
 
         # Solve the CDE.
-        z = torchcde.cdeint(X=X, z0=z0, func=self.func, t=X.grid_points)
+        z = torchcde.cdeint(X=X, z0=z0, func=self.func, t=X.grid_points, adjoint=False)
         pred_y = self.readout(z)
         return z, pred_y
 

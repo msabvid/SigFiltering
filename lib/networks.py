@@ -26,3 +26,29 @@ class FFN(nn.Module):
         x = torch.cat(args, -1)
 
         return self.net(x)
+
+
+
+
+
+class LinearRegression(nn.Module):
+
+    def __init__(self, n_in, n_out):
+        super().__init__()
+        self.linear = nn.Linear(n_in, n_out)
+    
+    def forward(self, X):
+        return self.linear(X)
+    
+    def fit(self, X, Y, n_epochs=200):
+        optimizer = torch.optim.Adam(self.linear.parameters(), lr=0.001)
+        loss_fn = nn.MSELoss()
+        for i in range(n_epochs):
+            optimizer.zero_grad()
+            pred = self.linear(X)
+            loss = loss_fn(pred, Y)
+            loss.backward()
+            optimizer.step()
+            print("iter: {}, loss: {:.4f}".format(i, loss.item()))
+
+        
