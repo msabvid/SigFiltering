@@ -122,7 +122,6 @@ class SigCWGAN(nn.Module):
         brownian[:,1:,:] = torch.sqrt(h.reshape(1,-1,1)) * torch.randn_like(brownian[:,1:,:])
         brownian_t, = augment_with_time(t_future, brownian)
         brownian_logsig = torchcde.logsig_windows(brownian_t, self.depth, window_length=self.window_length)
-        
         brownian_coeffs = torchcde.linear_interpolation_coeffs(brownian_logsig)
 
         obs_logsig = torchcde.logsig_windows(x_real_obs_t[:,self.t<=t_future[0]], self.depth, window_length=self.window_length)

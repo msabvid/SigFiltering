@@ -5,7 +5,7 @@ import argparse
 import os
 
 from lib.sigcwgan import SigCWGAN
-from lib.data import SDE
+from lib.data import SDE_Linear as SDE
 
 
 
@@ -39,6 +39,10 @@ def main(device: str,
     sigcwgan.to(device)
     t_future = t[n_steps//2:]
     sigcwgan.train(num_epochs=num_epochs, t_future=t_future, mc_samples=50)
+
+    # save weights
+    weights = {"rde_xy":sigcwgan.neural_rde_xy.state_dict(), "rde_gen":sigcwgan:neural_rde_gen.state_dict()}
+    torch.save(weights, os.path.join(base_dir, 'weights.pth.tar')
 
 
 

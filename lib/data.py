@@ -2,6 +2,7 @@ import os
 import pickle
 import torch
 import torch.nn as nn
+from abc import abstractmethod
 
 import numpy as np
 import pandas as pd
@@ -10,7 +11,7 @@ from tqdm import tqdm
 from sklearn.metrics import confusion_matrix
 
 
-class SDE(nn.Module):
+class SDE():
 
     """
     dXt = b(Xt,Yt)dt + sigma dWt
@@ -21,23 +22,22 @@ class SDE(nn.Module):
 
     def __init__(self, rho, sigma):
         
-        super().__init__()
         self.rho = rho
         self.sigma = sigma
-
+    
+    @abtsractmethod
     def b(self, x, y):
         """
         Drift of state process Xt
         """
-        # TODO
-        return 0.1*x
+        ...
 
+    @abstractmethod
     def B(self, x, y):
         """
         Drift of observation process Yt
         """
-        # TODO
-        return 0.2*x
+        ...
 
     def sdeint(self, x0, y0, ts):
         """
@@ -73,4 +73,13 @@ class SDE(nn.Module):
         return xy
 
 
+class SDE_Linear(SDE):
 
+    def __init__(self, rho, sigma):
+        super().__init__(rho=rho, sigma=sigma)
+
+    def b(self, x, y):
+        return 0.1*x
+    
+    def B(self, x, y):
+        return 0.2*x
