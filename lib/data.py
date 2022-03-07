@@ -25,7 +25,7 @@ class SDE():
         self.rho = rho
         self.sigma = sigma
     
-    @abtsractmethod
+    @abstractmethod
     def b(self, x, y):
         """
         Drift of state process Xt
