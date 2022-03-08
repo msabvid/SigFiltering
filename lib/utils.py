@@ -38,3 +38,7 @@ def init_weights(m):
             nn.init.zeros_(m.bias)#m.bias.zero_()#, gain=nn.init.calculate_gain('relu'))
         except:
             pass
+
+def toggle(m: nn.Module, to: bool):
+    for p in m.parameters():
+        p.requires_grad_(to)
