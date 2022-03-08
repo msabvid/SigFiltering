@@ -16,23 +16,23 @@ mpl.rcParams['axes.spines.top'] = False
 
 
 def main(device: str,
-        seed: int,
-        num_epochs: int,
-        depth: int,
-        T: float,
-        n_steps: int,
-        sigma: float,
-        rho: float,
-        window_length: int,
-        base_dir: str,
-        **kwargs):
+         seed: int,
+         num_epochs: int,
+         depth: int,
+         T: float,
+         n_steps: int,
+         sigma: float,
+         rho: float,
+         window_length: int,
+         base_dir: str,
+         **kwargs):
 
     
     # We generate the data
     print("Generating the data...")
     sde = SDE(rho=rho, sigma=sigma)
     t = torch.linspace(0,T,n_steps+1).to(device)
-    x0 = torch.ones(3000, device=device)
+    x0 = torch.ones(20000, device=device)
     y0 = torch.ones_like(x0)
     xy = sde.sdeint(x0,y0,t)
 
@@ -90,35 +90,37 @@ def plot(device: str,
     fig.savefig(os.path.join(base_dir, 'loss.pdf'))
     
     t_future = t[n_steps//2:]
-    t_past = t[t<t_future[0]]
-    mc_samples=10
+    t_past = t[t<=t_future[0]]
+    mc_samples=50
     with torch.no_grad():
-        pred = sigcwgan.sample(x_real_obs = xy[...,1].unsqueeze(2), t_future=t[n_steps//2:], mc_samples=10)
+        pred = sigcwgan.sample(x_real_obs = xy[...,1].unsqueeze(2), t_future=t[n_steps//2:], mc_samples=mc_samples)
     
     for i in range(10):
         fig, ax = plt.subplots(figsize=(12,3))
-        ax.plot(to_numpy(t), to_numpy(xy[i,:,1]), label="obs", color='blue')
-        ax.plot(to_numpy(t_past), to_numpy(xy[i,:len(t_past),0]), label="state", color="magenta")
+        ax.plot(to_numpy(t), to_numpy(xy[i,:,1]), label="obs")
+        ax.plot(to_numpy(t_past), to_numpy(xy[i,:len(t_past),0]), label="state")
         for j in range(mc_samples):
-            ax.plot(to_numpy(t_future[::window_length]), to_numpy(pred[j,:,0]), color="magenta", alpha=0.5)
+            ax.plot(to_numpy(t_future[::window_length]), to_numpy(pred[i*mc_samples + j,:,0]), color="green", alpha=0.2)
+        fig.legend()
+        fig.tight_layout()
+        fig.savefig(os.path.join(base_dir, "sample_{}.pdf".format(i)))
+        plt.close()
+
+    pred = sigcwgan.predict(xy[...,1].unsqueeze(2))
+    for i in range(10):
+        fig, ax = plt.subplots(figsize=(12,3))
+        ax.plot(to_numpy(t), to_numpy(xy[i,:,1]), label="obs") 
+        ax.plot(to_numpy(t), to_numpy(xy[i,:,0]), label="state") 
+        ax.plot(to_numpy(t[::window_length]), to_numpy(pred[i,:,0]), label="pred")
         fig.legend()
         fig.tight_layout()
         fig.savefig(os.path.join(base_dir, "pred_{}.pdf".format(i)))
+        plt.close()
 
 
+        
 
 
-
-
-
-
-
-
-
-
-
-
-    
 
 
 
@@ -152,7 +154,7 @@ if __name__=='__main__':
         device="cpu"
     config = vars(args)
     config.pop('device')
-    config['device']=device
+    config['device'] = device
 
     results_path = args.base_dir#os.path.join(args.base_dir, "BS", args.method)
     if not os.path.exists(results_path):

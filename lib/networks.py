@@ -27,6 +27,16 @@ class FFN(nn.Module):
 
         return self.net(x)
 
+    def fit(self, X, Y, n_epochs=200):
+        optimizer = torch.optim.Adam(self.net.parameters(), lr=0.001)
+        loss_fn = nn.MSELoss()
+        for i in range(n_epochs):
+            optimizer.zero_grad()
+            pred = self.net(X)
+            loss = loss_fn(pred, Y)
+            loss.backward()
+            optimizer.step()
+            print("iter: {}, loss: {:.4f}".format(i, loss.item()))
 
 
 

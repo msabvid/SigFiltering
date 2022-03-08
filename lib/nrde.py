@@ -37,10 +37,10 @@ class NeuralCDE(torch.nn.Module):
 
         self.func = CDEFunc(input_channels, hidden_channels)
         self.gen = gen
-        if gen:
-            self.initial = FFN(sizes=[input_channels+hidden_channels+1, 20, hidden_channels], output_activation=nn.Tanh)
-        else:
-            self.initial = FFN(sizes=[input_channels, 20, hidden_channels], output_activation=nn.Tanh)
+        #if gen:
+        #    self.initial = FFN(sizes=[input_channels+hidden_channels, 20, hidden_channels], output_activation=nn.Tanh)
+        #else:
+        self.initial = FFN(sizes=[input_channels, 20, hidden_channels], output_activation=nn.Tanh)
         self.readout = torch.nn.Linear(hidden_channels, output_channels)
         self.interpolation = interpolation
 
@@ -55,9 +55,10 @@ class NeuralCDE(torch.nn.Module):
         # Initial hidden state should be a function of the first observation.
         X0 = X.evaluate(X.interval[0])
         if self.gen:
-            noise = torch.randn(X0.shape[0],1,device=X0.device)
-            hidden_state = kwargs['z']
-            z0 = self.initial(X0, hidden_state, noise)
+            #noise = torch.randn(X0.shape[0],1,device=X0.device)
+            #hidden_state = kwargs['z']
+            #z0 = self.initial(X0, hidden_state)#, noise)
+            z0 = kwargs['z'] + self.initial(torch.randn_like(X0))
         else:
             z0 = self.initial(X0)
 

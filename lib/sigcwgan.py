@@ -7,8 +7,9 @@ from torch import optim
 from tqdm import tqdm
 
 from lib.nrde import NeuralCDE
-from lib.networks import LinearRegression 
-from lib.utils import to_numpy
+from lib.networks import LinearRegression, FFN
+from lib.utils import to_numpy, toggle
+from lib.augmentations import VisiTrans, apply_augmentations
 
 
 def sigcwgan_loss(sig_pred: torch.Tensor, sig_fake_conditional_expectation: torch.Tensor):
@@ -32,7 +33,9 @@ def compute_sig(depth, x, stream: bool = False):
         if stream=True, tensor of shape [batch_size, L, logsig_channels]
         if stream=False, tensor of shape [batch_size, logsig_channels]
     """
-    return signatory.signature(x, depth, stream=stream, basepoint=True)
+    augmentations = (VisiTrans(),)
+    y = apply_augmentations(x=x, augmentations=augmentations)
+    return signatory.signature(y, depth, stream=stream, basepoint=False)
 
 
 def calibrate_sigw1_metric(depth, x_past_obs, x_future_state):
@@ -47,12 +50,18 @@ def calibrate_sigw1_metric(depth, x_past_obs, x_future_state):
     #lm = LinearRegression()
     #lm.fit(X,Y)
     #sig_pred = torch.from_numpy(lm.predict(X)).float().to(x_future_state.device)
-    lm = LinearRegression(n_in = sig_past_obs.shape[-1], n_out=sig_future_state.shape[-1])
-    lm.to(sig_past_obs.device)
-    lm.fit(X=sig_past_obs, Y=sig_future_state, n_epochs=10000)
-    sig_pred = lm(sig_past_obs)
-
-    return sig_pred
+    #lm = LinearRegression(n_in = sig_past_obs.shape[-1], n_out=sig_future_state.shape[-1])
+    #lm.to(sig_past_obs.device)
+    #lm.fit(X=sig_past_obs, Y=sig_future_state, n_epochs=10000)
+    #sig_pred = lm(sig_past_obs)
+    
+    m = FFN(sizes=[sig_past_obs.shape[-1], 10, sig_future_state.shape[-1]])
+    m.to(sig_past_obs.device)
+    m.fit(X=sig_past_obs, Y=sig_future_state, n_epochs=5000)
+    with torch.no_grad():
+        sig_pred = m(sig_past_obs)
+    
+    return sig_pred.detach()
 
 
 
@@ -105,11 +114,21 @@ class SigCWGAN(nn.Module):
         brownian_logsig = torchcde.logsig_windows(brownian_t, self.depth, window_length=self.window_length)
         brownian_coeffs = torchcde.linear_interpolation_coeffs(brownian_logsig)
         
-        z_mc = z[:,-1,:].repeat(mc_samples, 1)
+        #z_mc = z[:,-1,:].repeat(mc_samples, 1)
+        z_mc = torch.repeat_interleave(z[:,-1,:], mc_samples, dim=0)
         _, pred = self.neural_rde_gen(brownian_coeffs, z=z_mc) # pred has shape (batch_size*mc_samples, len(t_future), 1)
 
+        return pred#.reshape(mc_samples, -1, *pred.shape[-2:])
+
+    
+    def predict(self, x_real_obs: torch.Tensor):
+        x_real_obs_t, = augment_with_time(self.t, x_real_obs)
+        obs_logsig = torchcde.logsig_windows(x_real_obs_t, self.depth, window_length=self.window_length)
+        obs_coeffs = torchcde.linear_interpolation_coeffs(obs_logsig)
+        _, pred = self.neural_rde_xy(obs_coeffs)
         return pred
 
+    
     def train(self, num_epochs, t_future: torch.Tensor, mc_samples: int):
         batch_size = 400
 
@@ -139,12 +158,15 @@ class SigCWGAN(nn.Module):
             pbar.write("loss:{:.4f}".format(loss.item()))
 
         # 2. Training of second Neural RDE
+        self.neural_rde_gen.readout.load_state_dict(self.neural_rde_xy.readout.state_dict())
+        #toggle(self.neural_rde_gen.readout, to=False)
+        
         print("Training Neural RDE that generates future data")
-        x_real_future = self.x_real_obs[:,self.t>=t_future[0],:]
-        sig_x_real_future_ce = calibrate_sigw1_metric(depth=self.depth, 
+        x_real_future = self.x_real_state[:,self.t>=t_future[0],:]
+        sig_x_real_future_ce = calibrate_sigw1_metric(depth=self.depth+1, 
                                                       x_past_obs=self.x_real_obs[:,self.t<=t_future[0]],
                                                       x_future_state=x_real_future[:,::self.window_length]
-                                                     ).detach()
+                                                     )
         h = t_future[1:] - t_future[:-1]
 
         obs_logsig = torchcde.logsig_windows(x_real_obs_t[:,self.t<=t_future[0]], self.depth, window_length=self.window_length)
@@ -157,6 +179,7 @@ class SigCWGAN(nn.Module):
         pbar = tqdm(total=num_epochs)
         for epoch in range(num_epochs):
             for i, (batch_obs_coeffs, batch_sig_x_real) in enumerate(train_dataloader):
+                batch_size_ = batch_sig_x_real.shape[0]
                 
                 pbar.write("batch {} of {}".format(i, len(train_dataloader)))
                 optimizer.zero_grad()
@@ -164,15 +187,16 @@ class SigCWGAN(nn.Module):
                     z, _ = self.neural_rde_xy(batch_obs_coeffs)
             
                 # Monte Carlo for prediction!!!!
-                brownian = torch.zeros(batch_size * mc_samples, len(t_future), 1, device=self.x_real_obs.device)
+                brownian = torch.zeros(batch_size_ * mc_samples, len(t_future), 1, device=self.x_real_obs.device)
                 brownian[:,1:,:] = torch.sqrt(h.reshape(1,-1,1)) * torch.randn_like(brownian[:,1:,:])
+                brownian = brownian.cumsum(1)
                 brownian_t, = augment_with_time(t_future, brownian)
                 brownian_logsig = torchcde.logsig_windows(brownian_t, self.depth, window_length=self.window_length)
                 brownian_coeffs = torchcde.linear_interpolation_coeffs(brownian_logsig)
                 
                 z_mc = z[:,-1,:].repeat(mc_samples, 1)
                 _, pred = self.neural_rde_gen(brownian_coeffs, z=z_mc)
-                sig_pred_ce = compute_sig(depth=self.depth, x=pred).reshape(mc_samples, *batch_sig_x_real.shape).mean(0)
+                sig_pred_ce = compute_sig(depth=self.depth+1, x=pred).reshape(mc_samples, *batch_sig_x_real.shape).mean(0)
                 loss = sigcwgan_loss(batch_sig_x_real, sig_pred_ce)
                 loss.backward()
                 optimizer.step()
