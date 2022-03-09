@@ -1,4 +1,5 @@
 import os
+import math
 import pickle
 import torch
 import torch.nn as nn
@@ -63,8 +64,8 @@ class SDE():
         for i, t in enumerate(ts[:-1]):
             h = ts[i+1] - ts[i]
             z = torch.randn(batch_size, 2).to(x0.device)
+            z[:,1] = self.rho * z[:,1] + math.sqrt(1-self.rho**2)*z[:,0] # Cholesky
             dW = torch.sqrt(h) * z
-            dW[:,0] = self.rho**2 * dW[:,0] + (1-self.rho**2) * dW[:,1]
 
             x = x + self.b(x,y)*h + self.sigma * dW[:,0]
             y = y + self.B(x,y)*h + dW[:,1]

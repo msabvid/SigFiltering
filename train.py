@@ -136,7 +136,7 @@ if __name__=='__main__':
     parser.add_argument('--seed', default=1, type=int)
 
 
-    parser.add_argument('--sigma', default=0.3, type=float, help='diffusion X process')
+    parser.add_argument('--sigma', default=1., type=float, help='diffusion X process')
     parser.add_argument('--rho', default=0., type=float)
 
     parser.add_argument('--num_epochs', default=100, type=int)
