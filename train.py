@@ -7,7 +7,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from lib.sigcwgan import SigCWGAN
-from lib.data import SDE_Linear as SDE
+from lib.data import linear_sdeint, F, G, C, D, kalman_filter
 from lib.utils import to_numpy
 
 mpl.rcParams['axes.grid'] = True
@@ -21,7 +21,6 @@ def main(device: str,
          depth: int,
          T: float,
          n_steps: int,
-         sigma: float,
          rho: float,
          window_length: int,
          base_dir: str,
@@ -30,11 +29,11 @@ def main(device: str,
     
     # We generate the data
     print("Generating the data...")
-    sde = SDE(rho=rho, sigma=sigma)
     t = torch.linspace(0,T,n_steps+1).to(device)
-    x0 = torch.ones(20000, device=device)
+    x0 = torch.ones(2000, device=device)
     y0 = torch.ones_like(x0)
-    xy = sde.sdeint(x0,y0,t)
+    xy = linear_sdeint(x0,y0,t,F,C,G,D)
+    x_ce = kalman_filter(obs = xy[...,1].unsqueeze(2), x0=x0, ts=t, F=F, C=C, G=G, D=D)
 
     # SigCWGAN
     sigcwgan = SigCWGAN(depth=depth, 
@@ -59,17 +58,17 @@ def plot(device: str,
         depth: int,
         T: float,
         n_steps: int,
-        sigma: float,
         rho: float,
         window_length: int,
         base_dir: str,
         **kwargs):
     
-    sde = SDE(rho=rho, sigma=sigma)
     t = torch.linspace(0,T,n_steps+1).to(device)
     x0 = torch.ones(10, device=device)
     y0 = torch.ones_like(x0)
-    xy = sde.sdeint(x0,y0,t)
+    #xy = sde.sdeint(x0,y0,t)
+    xy = linear_sdeint(x0,y0,t,F,C,G,D)
+    x_ce = kalman_filter(obs = xy[...,1].unsqueeze(2), x0=x0, ts=t, F=F, C=C, G=G, D=D)
 
     res = torch.load(os.path.join(base_dir, 'res.pth.tar'), map_location=device)
     sigcwgan = SigCWGAN(depth=depth, 
@@ -106,12 +105,13 @@ def plot(device: str,
         fig.savefig(os.path.join(base_dir, "sample_{}.pdf".format(i)))
         plt.close()
 
-    pred = sigcwgan.predict(xy[...,1].unsqueeze(2))
+    pred_ce = sigcwgan._filtering(xy[...,1].unsqueeze(2))
     for i in range(10):
         fig, ax = plt.subplots(figsize=(12,3))
         ax.plot(to_numpy(t), to_numpy(xy[i,:,1]), label="obs") 
         ax.plot(to_numpy(t), to_numpy(xy[i,:,0]), label="state") 
-        ax.plot(to_numpy(t[::window_length]), to_numpy(pred[i,:,0]), label="pred")
+        ax.plot(to_numpy(t[::window_length]), to_numpy(pred_ce[i,:,0]), label="pred ce")
+        ax.plot(to_numpy(t), to_numpy(x_ce[i,:,0]), label="kalman filter") 
         fig.legend()
         fig.tight_layout()
         fig.savefig(os.path.join(base_dir, "pred_{}.pdf".format(i)))
@@ -135,8 +135,6 @@ if __name__=='__main__':
     parser.add_argument('--use_cuda', action='store_true', default=True)
     parser.add_argument('--seed', default=1, type=int)
 
-
-    parser.add_argument('--sigma', default=1., type=float, help='diffusion X process')
     parser.add_argument('--rho', default=0., type=float)
 
     parser.add_argument('--num_epochs', default=100, type=int)
