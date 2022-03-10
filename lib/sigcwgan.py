@@ -105,34 +105,31 @@ class SigCWGAN(nn.Module):
         obs_coeffs = torchcde.linear_interpolation_coeffs(obs_logsig)
         
         with torch.no_grad():
-            z, _ = self.neural_rde_xy(obs_coeffs)
+            z, _ = self.neural_rde_xy(obs_coeffs, t='interval')
     
         # Monte Carlo for prediction!!!!
         brownian = torch.zeros(batch_size * mc_samples, len(t_future), 1, device=self.x_real_obs.device)
         brownian[:,1:,:] = torch.sqrt(h.reshape(1,-1,1)) * torch.randn_like(brownian[:,1:,:])
+        brownian = brownian.cumsum(1)
         brownian_t, = augment_with_time(t_future, brownian)
         brownian_logsig = torchcde.logsig_windows(brownian_t, self.depth, window_length=self.window_length)
         brownian_coeffs = torchcde.linear_interpolation_coeffs(brownian_logsig)
         
         #z_mc = z[:,-1,:].repeat(mc_samples, 1)
         z_mc = torch.repeat_interleave(z[:,-1,:], mc_samples, dim=0)
-        _, pred = self.neural_rde_gen(brownian_coeffs, z=z_mc) # pred has shape (batch_size*mc_samples, len(t_future), 1)
+        _, pred = self.neural_rde_gen(brownian_coeffs, z=z_mc, t='grid_points') # pred has shape (batch_size*mc_samples, len(t_future), 1)
 
         return pred#.reshape(mc_samples, -1, *pred.shape[-2:])
 
     
-    def predict(self, x_real_obs: torch.Tensor):
+    def _filtering(self, x_real_obs: torch.Tensor):
         x_real_obs_t, = augment_with_time(self.t, x_real_obs)
         obs_logsig = torchcde.logsig_windows(x_real_obs_t, self.depth, window_length=self.window_length)
         obs_coeffs = torchcde.linear_interpolation_coeffs(obs_logsig)
-        _, pred = self.neural_rde_xy(obs_coeffs)
+        _, pred = self.neural_rde_xy(obs_coeffs, t='grid_points')
         return pred
-
     
-    def train(self, num_epochs, t_future: torch.Tensor, mc_samples: int):
-        batch_size = 400
-
-        # 1. Training of first Neural RDE
+    def _train_filtering(self, num_epochs: int, batch_size: int):
         print("Training Neural RDE to model (X,Y)")
         x_real_obs_t, = augment_with_time(self.t, self.x_real_obs)
         obs_logsig = torchcde.logsig_windows(x_real_obs_t, self.depth, window_length=self.window_length)
@@ -149,7 +146,7 @@ class SigCWGAN(nn.Module):
             for i, (batch_coeffs, batch_y) in enumerate(train_dataloader):
                 pbar.write("batch {} of {}".format(i, len(train_dataloader)))
                 optimizer.zero_grad()
-                _, pred = self.neural_rde_xy(batch_coeffs)
+                _, pred = self.neural_rde_xy(batch_coeffs, t='grid_points')
                 loss = loss_fn(pred, batch_y[:,::self.window_length])
                 loss.backward()
                 optimizer.step()
@@ -157,9 +154,11 @@ class SigCWGAN(nn.Module):
             pbar.update(1)
             pbar.write("loss:{:.4f}".format(loss.item()))
 
-        # 2. Training of second Neural RDE
+
+    def _train_prediction(self, num_epochs: int, batch_size: int, t_future: torch.Tensor, mc_samples: int):
+        x_real_obs_t, = augment_with_time(self.t, self.x_real_obs)
         self.neural_rde_gen.readout.load_state_dict(self.neural_rde_xy.readout.state_dict())
-        #toggle(self.neural_rde_gen.readout, to=False)
+        toggle(self.neural_rde_gen.readout, to=False)
         
         print("Training Neural RDE that generates future data")
         x_real_future = self.x_real_state[:,self.t>=t_future[0],:]
@@ -184,7 +183,7 @@ class SigCWGAN(nn.Module):
                 pbar.write("batch {} of {}".format(i, len(train_dataloader)))
                 optimizer.zero_grad()
                 with torch.no_grad():
-                    z, _ = self.neural_rde_xy(batch_obs_coeffs)
+                    z, _ = self.neural_rde_xy(batch_obs_coeffs, t='interval')
             
                 # Monte Carlo for prediction!!!!
                 brownian = torch.zeros(batch_size_ * mc_samples, len(t_future), 1, device=self.x_real_obs.device)
@@ -195,7 +194,7 @@ class SigCWGAN(nn.Module):
                 brownian_coeffs = torchcde.linear_interpolation_coeffs(brownian_logsig)
                 
                 z_mc = z[:,-1,:].repeat(mc_samples, 1)
-                _, pred = self.neural_rde_gen(brownian_coeffs, z=z_mc)
+                _, pred = self.neural_rde_gen(brownian_coeffs, z=z_mc, t='grid_points')
                 sig_pred_ce = compute_sig(depth=self.depth+1, x=pred).reshape(mc_samples, *batch_sig_x_real.shape).mean(0)
                 loss = sigcwgan_loss(batch_sig_x_real, sig_pred_ce)
                 loss.backward()
@@ -203,6 +202,16 @@ class SigCWGAN(nn.Module):
                 self.loss_gen.append(loss.item())
             pbar.update(1)
             pbar.write("loss:{:.4f}".format(loss.item()))
+    
+    
+    def train(self, num_epochs, t_future: torch.Tensor, mc_samples: int):
+        batch_size = 400
+
+        # 1. Solving Filtering problem
+        self._train_filtering(num_epochs=num_epochs, batch_size=batch_size)
+
+        # 2. Solving prediction problem
+        self._train_prediction(num_epochs=num_epochs, batch_size=batch_size, t_future=t_future, mc_samples=mc_samples)
         
         return 0
                 
