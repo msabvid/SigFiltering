@@ -30,7 +30,7 @@ def main(device: str,
     # We generate the data
     print("Generating the data...")
     t = torch.linspace(0,T,n_steps+1).to(device)
-    x0 = torch.ones(2000, device=device)
+    x0 = torch.ones(10000, device=device)
     y0 = torch.ones_like(x0)
     xy = linear_sdeint(x0,y0,t,F,C,G,D)
     x_ce = kalman_filter(obs = xy[...,1].unsqueeze(2), x0=x0, ts=t, F=F, C=C, G=G, D=D)
@@ -42,8 +42,8 @@ def main(device: str,
                         t=t,
                         window_length=window_length)
     sigcwgan.to(device)
-    t_future = t[n_steps//2:]
-    sigcwgan.train(num_epochs=num_epochs, t_future=t_future, mc_samples=50)
+    t_future = t[n_steps//2:n_steps//2+20]
+    sigcwgan.fit(num_epochs=num_epochs, t_future=t_future, mc_samples=50, batch_size=200)
 
     # save weights
     res = {"rde_xy":sigcwgan.neural_rde_xy.state_dict(), "rde_gen":sigcwgan.neural_rde_gen.state_dict(),
@@ -93,33 +93,30 @@ def plot(device: str,
     mc_samples=50
     with torch.no_grad():
         pred = sigcwgan.sample(x_real_obs = xy[...,1].unsqueeze(2), t_future=t[n_steps//2:], mc_samples=mc_samples)
-    
+        pred_ce = sigcwgan._filtering(xy[...,1].unsqueeze(2))
+    textstr = '\n'.join((
+        r'$dX_t = F(t)X_tdt + C(t)dW_t^X$',
+        r'$dY_t = G(t)X_tdt + dW_t^Y$' ))
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
     for i in range(10):
-        fig, ax = plt.subplots(figsize=(12,3))
-        ax.plot(to_numpy(t), to_numpy(xy[i,:,1]), label="obs")
-        ax.plot(to_numpy(t_past), to_numpy(xy[i,:len(t_past),0]), label="state")
-        for j in range(mc_samples):
-            ax.plot(to_numpy(t_future[::window_length]), to_numpy(pred[i*mc_samples + j,:,0]), color="green", alpha=0.2)
-        fig.legend()
-        fig.tight_layout()
-        fig.savefig(os.path.join(base_dir, "sample_{}.pdf".format(i)))
-        plt.close()
-
-    pred_ce = sigcwgan._filtering(xy[...,1].unsqueeze(2))
-    for i in range(10):
-        fig, ax = plt.subplots(figsize=(12,3))
-        ax.plot(to_numpy(t), to_numpy(xy[i,:,1]), label="obs") 
-        ax.plot(to_numpy(t), to_numpy(xy[i,:,0]), label="state") 
-        ax.plot(to_numpy(t[::window_length]), to_numpy(pred_ce[i,:,0]), label="pred ce")
-        ax.plot(to_numpy(t), to_numpy(x_ce[i,:,0]), label="kalman filter") 
-        fig.legend()
-        fig.tight_layout()
-        fig.savefig(os.path.join(base_dir, "pred_{}.pdf".format(i)))
-        plt.close()
-
-
+        fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(12,6))
+        ax[0].plot(to_numpy(t), to_numpy(xy[i,:,1]), label=r"$Y_t(\omega)$") 
+        ax[0].plot(to_numpy(t), to_numpy(xy[i,:,0]), label=r"$X_t(\omega)$") 
+        ax[0].plot(to_numpy(t[::window_length]), to_numpy(pred_ce[i,:,0]), label="pred nrde")
+        ax[0].plot(to_numpy(t), to_numpy(x_ce[i,:,0]), label=r"kalman filter - $E(X_t | F_t^Y)(\omega)$") 
+        ax[0].text(0.05, 0.95, textstr, transform=ax[0].transAxes, fontsize=14, verticalalignment='top', bbox=props)
+        ax[0].set_title("Filtering")
+        ax[0].legend(loc='lower left')
         
-
+        ax[1].plot(to_numpy(t), to_numpy(xy[i,:,1]), label=r"$Y_t(\omega)$")
+        ax[1].plot(to_numpy(t_past), to_numpy(xy[i,:len(t_past),0]), label=r"$X_t(\omega)$")
+        for j in range(mc_samples):
+            ax[1].plot(to_numpy(t_future[::window_length]), to_numpy(pred[i*mc_samples + j,:,0]), color="green", alpha=0.2)
+        ax[1].legend()
+        ax[1].set_title("Prediction")
+        fig.tight_layout()
+        fig.savefig(os.path.join(base_dir, "filtering_{}.pdf".format(i)))
+        plt.close()
 
 
 

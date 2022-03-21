@@ -2,11 +2,13 @@ import torch
 import torch.nn as nn
 import signatory
 import torchcde
-#from sklearn.linear_model import LinearRegression
 from torch import optim
-from tqdm import tqdm
+from torchdiffeq import odeint
 
-from lib.nrde import NeuralCDE
+from tqdm import tqdm
+from sklearn.linear_model import LinearRegression
+
+from lib.nrde import NeuralCDE, NeuralODE
 from lib.networks import LinearRegression, FFN
 from lib.utils import to_numpy, toggle
 from lib.augmentations import VisiTrans, apply_augmentations
@@ -16,7 +18,7 @@ def sigcwgan_loss(sig_pred: torch.Tensor, sig_fake_conditional_expectation: torc
     return torch.norm(sig_pred - sig_fake_conditional_expectation, p=2, dim=1).mean()
 
 
-def compute_sig(depth, x, stream: bool = False):
+def compute_sig(depth, x, stream: bool = False, basepoint=False):
     """
     Parameters
     ----------
@@ -35,7 +37,7 @@ def compute_sig(depth, x, stream: bool = False):
     """
     augmentations = (VisiTrans(),)
     y = apply_augmentations(x=x, augmentations=augmentations)
-    return signatory.signature(y, depth, stream=stream, basepoint=False)
+    return signatory.signature(x, depth, stream=stream, basepoint=basepoint)
 
 
 def calibrate_sigw1_metric(depth, x_past_obs, x_future_state):
@@ -57,7 +59,7 @@ def calibrate_sigw1_metric(depth, x_past_obs, x_future_state):
     
     m = FFN(sizes=[sig_past_obs.shape[-1], 10, sig_future_state.shape[-1]])
     m.to(sig_past_obs.device)
-    m.fit(X=sig_past_obs, Y=sig_future_state, n_epochs=5000)
+    m.fit(X=sig_past_obs, Y=sig_future_state, n_epochs=1000)
     with torch.no_grad():
         sig_pred = m(sig_past_obs)
     
@@ -83,136 +85,55 @@ class SigCWGAN(nn.Module):
         self.depth = depth
         self.x_real_obs = x_real_obs
         self.x_real_state = x_real_state
+        self.sig_x_real_state = compute_sig(depth, x_real_state, stream=True, basepoint=True)
         self.t = t
         self.window_length = window_length
         
-        # 1. Neural RDE to model (X,Y)
+        # 1. Neural RDE to model the information carried by the filtration F_t^Y
         logsig_channels = signatory.logsignature_channels(in_channels=x_real_obs.shape[-1]+1, depth=depth) # +1 because of time
-        self.neural_rde_xy = NeuralCDE(input_channels=logsig_channels, hidden_channels=8, output_channels=1, interpolation="linear")
+        self.nrde_filtration = NeuralCDE(input_channels=logsig_channels, hidden_channels=8, interpolation="linear")
         # 2. Neural RDE to generate new future data
-        self.neural_rde_gen = NeuralCDE(input_channels = logsig_channels, hidden_channels=8, output_channels=1, interpolation="linear", gen=True)
+        self.node_gen = NeuralODE(hidden_channels=8, output_channels=1 )
         
-        self.loss_xy = []
         self.loss_gen = []
        
-    def sample(self, x_real_obs: torch.Tensor, t_future: torch.Tensor, mc_samples: int):
-        batch_size = x_real_obs.shape[0]
+    def fit(self, num_epochs: int, batch_size: int, t_future: torch.Tensor, mc_samples: int):
 
-        x_real_obs_t, = augment_with_time(self.t, x_real_obs)
-        h = t_future[1:] - t_future[:-1]
+        ind_past = self.t <= t_future[0]
+        ind_future = torch.logical_and(self.t >= t_future[0], self.t <= t_future[-1])
 
-        obs_logsig = torchcde.logsig_windows(x_real_obs_t[:,self.t<=t_future[0]], self.depth, window_length=self.window_length)
-        obs_coeffs = torchcde.linear_interpolation_coeffs(obs_logsig)
-        
-        with torch.no_grad():
-            z, _ = self.neural_rde_xy(obs_coeffs, t='interval')
-    
-        # Monte Carlo for prediction!!!!
-        brownian = torch.zeros(batch_size * mc_samples, len(t_future), 1, device=self.x_real_obs.device)
-        brownian[:,1:,:] = torch.sqrt(h.reshape(1,-1,1)) * torch.randn_like(brownian[:,1:,:])
-        brownian = brownian.cumsum(1)
-        brownian_t, = augment_with_time(t_future, brownian)
-        brownian_logsig = torchcde.logsig_windows(brownian_t, self.depth, window_length=self.window_length)
-        brownian_coeffs = torchcde.linear_interpolation_coeffs(brownian_logsig)
-        
-        #z_mc = z[:,-1,:].repeat(mc_samples, 1)
-        z_mc = torch.repeat_interleave(z[:,-1,:], mc_samples, dim=0)
-        _, pred = self.neural_rde_gen(brownian_coeffs, z=z_mc, t='grid_points') # pred has shape (batch_size*mc_samples, len(t_future), 1)
-
-        return pred#.reshape(mc_samples, -1, *pred.shape[-2:])
-
-    
-    def _filtering(self, x_real_obs: torch.Tensor):
-        x_real_obs_t, = augment_with_time(self.t, x_real_obs)
+        x_real_obs_t, = augment_with_time(self.t[ind_past], self.x_real_obs[:, ind_past,:])
         obs_logsig = torchcde.logsig_windows(x_real_obs_t, self.depth, window_length=self.window_length)
         obs_coeffs = torchcde.linear_interpolation_coeffs(obs_logsig)
-        _, pred = self.neural_rde_xy(obs_coeffs, t='grid_points')
-        return pred
-    
-    def _train_filtering(self, num_epochs: int, batch_size: int):
-        print("Training Neural RDE to model (X,Y)")
-        x_real_obs_t, = augment_with_time(self.t, self.x_real_obs)
-        obs_logsig = torchcde.logsig_windows(x_real_obs_t, self.depth, window_length=self.window_length)
-        obs_coeffs = torchcde.linear_interpolation_coeffs(obs_logsig)
-
-        train_dataset = torch.utils.data.TensorDataset(obs_coeffs, self.x_real_state)
-        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = batch_size)
-
-        optimizer = torch.optim.Adam(self.neural_rde_xy.parameters(), lr=0.001)
-        loss_fn = nn.MSELoss()
-
-        pbar = tqdm(total=num_epochs)
-        for epoch in range(num_epochs):
-            for i, (batch_coeffs, batch_y) in enumerate(train_dataloader):
-                pbar.write("batch {} of {}".format(i, len(train_dataloader)))
-                optimizer.zero_grad()
-                _, pred = self.neural_rde_xy(batch_coeffs, t='grid_points')
-                loss = loss_fn(pred, batch_y[:,::self.window_length])
-                loss.backward()
-                optimizer.step()
-                self.loss_xy.append(loss.item())
-            pbar.update(1)
-            pbar.write("loss:{:.4f}".format(loss.item()))
-
-
-    def _train_prediction(self, num_epochs: int, batch_size: int, t_future: torch.Tensor, mc_samples: int):
-        x_real_obs_t, = augment_with_time(self.t, self.x_real_obs)
-        self.neural_rde_gen.readout.load_state_dict(self.neural_rde_xy.readout.state_dict())
-        toggle(self.neural_rde_gen.readout, to=False)
         
-        print("Training Neural RDE that generates future data")
-        x_real_future = self.x_real_state[:,self.t>=t_future[0],:]
+        x_real_future = self.x_real_state[:, ind_future, :]
         sig_x_real_future_ce = calibrate_sigw1_metric(depth=self.depth+1, 
-                                                      x_past_obs=self.x_real_obs[:,self.t<=t_future[0]],
-                                                      x_future_state=x_real_future[:,::self.window_length]
-                                                     )
-        h = t_future[1:] - t_future[:-1]
-
-        obs_logsig = torchcde.logsig_windows(x_real_obs_t[:,self.t<=t_future[0]], self.depth, window_length=self.window_length)
-        obs_coeffs = torchcde.linear_interpolation_coeffs(obs_logsig)
+                                                      x_past_obs=self.x_real_obs[:,ind_past],
+                                                      x_future_state=x_real_future
+                                                      )
         train_dataset = torch.utils.data.TensorDataset(obs_coeffs, sig_x_real_future_ce)
-        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = batch_size)
-
-        optimizer = torch.optim.Adam(self.neural_rde_gen.parameters(), lr=0.005)
-        
+        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size)
+        optimizer = optim.Adam(list(self.nrde_filtration.parameters())+list(self.node_gen.parameters()), lr=0.001)
+    
         pbar = tqdm(total=num_epochs)
         for epoch in range(num_epochs):
-            for i, (batch_obs_coeffs, batch_sig_x_real) in enumerate(train_dataloader):
-                batch_size_ = batch_sig_x_real.shape[0]
-                
+            for i, (batch_coeffs, batch_sig_x_real) in enumerate(train_dataloader):
                 pbar.write("batch {} of {}".format(i, len(train_dataloader)))
                 optimizer.zero_grad()
-                with torch.no_grad():
-                    z, _ = self.neural_rde_xy(batch_obs_coeffs, t='interval')
-            
-                # Monte Carlo for prediction!!!!
-                brownian = torch.zeros(batch_size_ * mc_samples, len(t_future), 1, device=self.x_real_obs.device)
-                brownian[:,1:,:] = torch.sqrt(h.reshape(1,-1,1)) * torch.randn_like(brownian[:,1:,:])
-                brownian = brownian.cumsum(1)
-                brownian_t, = augment_with_time(t_future, brownian)
-                brownian_logsig = torchcde.logsig_windows(brownian_t, self.depth, window_length=self.window_length)
-                brownian_coeffs = torchcde.linear_interpolation_coeffs(brownian_logsig)
-                
+                z = self.nrde_filtration(batch_coeffs, t='interval')
+                # Monte Carlo
                 z_mc = z[:,-1,:].repeat(mc_samples, 1)
-                _, pred = self.neural_rde_gen(brownian_coeffs, z=z_mc, t='grid_points')
+                _, pred = self.node_gen(z0=z_mc, t=t_future)
                 sig_pred_ce = compute_sig(depth=self.depth+1, x=pred).reshape(mc_samples, *batch_sig_x_real.shape).mean(0)
                 loss = sigcwgan_loss(batch_sig_x_real, sig_pred_ce)
                 loss.backward()
                 optimizer.step()
                 self.loss_gen.append(loss.item())
             pbar.update(1)
-            pbar.write("loss:{:.4f}".format(loss.item()))
-    
-    
-    def train(self, num_epochs, t_future: torch.Tensor, mc_samples: int):
-        batch_size = 400
+            pbar.write("loss: {:.4f}".format(loss.item()))
 
-        # 1. Solving Filtering problem
-        self._train_filtering(num_epochs=num_epochs, batch_size=batch_size)
 
-        # 2. Solving prediction problem
-        self._train_prediction(num_epochs=num_epochs, batch_size=batch_size, t_future=t_future, mc_samples=mc_samples)
-        
-        return 0
+
+
                 
 
