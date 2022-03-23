@@ -46,8 +46,7 @@ def main(device: str,
     sigcwgan.fit(num_epochs=num_epochs, t_future=t_future, mc_samples=50, batch_size=200)
 
     # save weights
-    res = {"rde_xy":sigcwgan.neural_rde_xy.state_dict(), "rde_gen":sigcwgan.neural_rde_gen.state_dict(),
-            "loss_xy":sigcwgan.loss_xy, "loss_gen":sigcwgan.loss_gen}
+    res = {"nrde_filtration":sigcwgan.nrde_filtration.state_dict(), "node_gen":sigcwgan.node_gen.state_dict(), "loss_gen":sigcwgan.loss_gen}
     torch.save(res, os.path.join(base_dir, 'res.pth.tar'))
 
     plot(**locals())
@@ -77,14 +76,12 @@ def plot(device: str,
                         t=t,
                         window_length=window_length)
     sigcwgan.to(device)
-    sigcwgan.neural_rde_xy.load_state_dict(res['rde_xy'])
-    sigcwgan.neural_rde_gen.load_state_dict(res['rde_gen'])
+    sigcwgan.nrde_filtration.load_state_dict(res['nrde_filtration'])
+    sigcwgan.node_gen.load_state_dict(res['node_gen'])
 
-    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12,3))
-    ax[0].plot(res['loss_xy'])
-    ax[0].set_title('Loss xy')
-    ax[1].plot(res['loss_gen'])
-    ax[1].set_title('loss gen')
+    fig, ax = plt.subplots(figsize=(6,3))
+    ax.plot(res['loss_gen'])
+    ax.set_title('loss gen')
     fig.tight_layout()
     fig.savefig(os.path.join(base_dir, 'loss.pdf'))
     
