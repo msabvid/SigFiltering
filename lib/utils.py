@@ -42,3 +42,8 @@ def init_weights(m):
 def toggle(m: nn.Module, to: bool):
     for p in m.parameters():
         p.requires_grad_(to)
+
+
+def set_seed(seed: int):
+    torch.manual_seed(seed)
+    np.random.seed(seed)

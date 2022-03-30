@@ -116,3 +116,41 @@ def kalman_filter(obs: torch.Tensor, x0: torch.Tensor, ts: torch.Tensor, F: Call
 
     return x_ce
 
+
+def sdeint(x0, y0, ts,):
+    """
+    SDE solver using Euler scheme
+    
+    dXt = tanh(Xt) dt + dWt
+    dYt = sin(Xt) dt + dZt 
+
+    Z, W independent brownian motions
+
+    Parameters
+    ----------
+    x0: torch.Tensor
+        Initial x0 state vector. Tensor of shape (batch_size)
+    y0: torch.Tensor
+        Initial y0 observation vector. Tensor of shape (batch_size)
+    ts: torch.Tensor
+        Time discretisation
+
+    Returns
+    -------
+    xy: torch.Tensor
+        Process (x,y). Tensor of shape (batch_size, L, 2)
+    """
+    device = x0.device
+    batch_size = x0.shape[0]
+    xy = torch.stack((x0,y0), 1).unsqueeze(1) 
+    x, y = x0, y0
+    for i, t in enumerate(ts[:-1]):
+        h = ts[i+1] - ts[i]
+        z = torch.randn(batch_size, 2).to(x0.device)
+        dW = torch.sqrt(h) * z
+
+        x = x + torch.tanh(x) * h + dW[:,0]
+        y = y + torch.sin(x) * h + dW[:,1]
+
+        xy = torch.cat([xy, torch.stack((x,y),1).unsqueeze(1)],1)
+    return xy

@@ -3,6 +3,7 @@ import torch.nn as nn
 import signatory
 import torchcde
 import torchdiffeq
+from functools import partial
 
 
 from typing import List
@@ -20,7 +21,7 @@ class CDEFunc(nn.Module):
         self.input_channels = input_channels
         self.hidden_channels = hidden_channels
         
-        self.net = FFN(sizes=[hidden_channels + 1, 128, input_channels * hidden_channels], output_activation=nn.Tanh)
+        self.net = FFN(sizes=[hidden_channels+1, 128, input_channels * hidden_channels], output_activation=nn.Tanh)
 
     def forward(self, t, z):
         # z has shape (batch, hidden_channels)
@@ -70,34 +71,54 @@ class ODEFunc(nn.Module):
         super().__init__()
         self.hidden_channels = hidden_channels
         
-        self.net = FFN(sizes=[hidden_channels + 1, 128, hidden_channels], output_activation=nn.Tanh)
+        self.net = FFN(sizes=[hidden_channels + 1, 128, hidden_channels])
+        #self.net = FFN(sizes=[1, 128, hidden_channels])
+        self._z0 = None
+
+    @property
+    def z0(self):
+        return self._z0
+
+    @z0.setter
+    def z0(self, new_z0):
+        self._z0 = new_z0
 
     def forward(self, t, z):
         # z has shape (batch, hidden_channels)
-        # time is necessary (?)
         t = t * torch.ones(z.shape[0], 1, device=z.device)
-        return self.net(t,z)
+        return self.net(t,self.z0)
+
 
 
 
 
 class NeuralODE(nn.Module):
-    def __init__(self, hidden_channels, output_channels):
+    def __init__(self, hidden_channels, output_channels, gen: bool=True):
         super().__init__()
+
+        if gen:
+            sizes = [hidden_channels+1, 20, output_channels]
+        else:
+            sizes = [hidden_channels, 20, output_channels]
+        self.gen = gen
         
-        self.initial = FFN(sizes=[hidden_channels+1, 20, hidden_channels], output_activation=nn.Tanh)# +1 is because of input noise
-        self.func = ODEFunc(hidden_channels)
-        self.readout = torch.nn.Linear(hidden_channels, output_channels)
+        self.initial = FFN(sizes=[hidden_channels+1, 20, output_channels])# +1 is because of input noise
+        self.func = ODEFunc(output_channels)
+        #self.readout = torch.nn.Linear(hidden_channels, output_channels)
 
     def forward(self, z0, t: torch.Tensor):
         # Solve the ODE.
         batch_size = z0.shape[0]
-        noise = torch.randn(batch_size, 1, device=z0.device)
-        z0 = self.initial(z0, noise)
-        z = torchdiffeq.odeint(self.func, z0, t)# , z0=z0, func=self.func, t=getattr(X, t), adjoint=False)
-        z = z.permute((1,0,2)) # (batch_size, L, dim)
-        pred_y = self.readout(z)
-        return z, pred_y
+        if self.gen:
+            noise = torch.randn(batch_size, 1, device=z0.device)
+            y0 = self.initial(z0, noise)
+        else:
+            y0 = self.initial(z0)
+        self.func.z0 = y0
+        y = torchdiffeq.odeint(self.func, y0, t)# , z0=z0, func=self.func, t=getattr(X, t), adjoint=False)
+        y = y.permute((1,0,2)) # (batch_size, L, dim)
+        #pred_y = self.readout(z)
+        return y#, pred_y
 
 
 

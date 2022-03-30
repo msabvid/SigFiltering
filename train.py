@@ -7,7 +7,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from lib.sigcwgan import SigCWGAN
-from lib.data import linear_sdeint, F, G, C, D, kalman_filter
+from lib.data import sdeint
 from lib.utils import to_numpy
 
 mpl.rcParams['axes.grid'] = True
@@ -32,8 +32,7 @@ def main(device: str,
     t = torch.linspace(0,T,n_steps+1).to(device)
     x0 = torch.ones(10000, device=device)
     y0 = torch.ones_like(x0)
-    xy = linear_sdeint(x0,y0,t,F,C,G,D)
-    x_ce = kalman_filter(obs = xy[...,1].unsqueeze(2), x0=x0, ts=t, F=F, C=C, G=G, D=D)
+    xy = linear_sdeint(x0,y0,t)
 
     # SigCWGAN
     sigcwgan = SigCWGAN(depth=depth, 
@@ -46,8 +45,7 @@ def main(device: str,
     sigcwgan.fit(num_epochs=num_epochs, t_future=t_future, mc_samples=50, batch_size=200)
 
     # save weights
-    res = {"rde_xy":sigcwgan.neural_rde_xy.state_dict(), "rde_gen":sigcwgan.neural_rde_gen.state_dict(),
-            "loss_xy":sigcwgan.loss_xy, "loss_gen":sigcwgan.loss_gen}
+    res = {"nrde_filtration":sigcwgan.nrde_filtration.state_dict(), "node_gen":sigcwgan.node_gen.state_dict(), "loss_gen":sigcwgan.loss_gen}
     torch.save(res, os.path.join(base_dir, 'res.pth.tar'))
 
     plot(**locals())
@@ -67,8 +65,7 @@ def plot(device: str,
     x0 = torch.ones(10, device=device)
     y0 = torch.ones_like(x0)
     #xy = sde.sdeint(x0,y0,t)
-    xy = linear_sdeint(x0,y0,t,F,C,G,D)
-    x_ce = kalman_filter(obs = xy[...,1].unsqueeze(2), x0=x0, ts=t, F=F, C=C, G=G, D=D)
+    xy = linear_sdeint(x0,y0,t,)
 
     res = torch.load(os.path.join(base_dir, 'res.pth.tar'), map_location=device)
     sigcwgan = SigCWGAN(depth=depth, 
@@ -77,8 +74,8 @@ def plot(device: str,
                         t=t,
                         window_length=window_length)
     sigcwgan.to(device)
-    sigcwgan.neural_rde_xy.load_state_dict(res['rde_xy'])
-    sigcwgan.neural_rde_gen.load_state_dict(res['rde_gen'])
+    sigcwgan.nrde_filtration.load_state_dict(res['nrde_filtration'])
+    sigcwgan.node_gen.load_state_dict(res['node_gen'])
 
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12,3))
     ax[0].plot(res['loss_xy'])

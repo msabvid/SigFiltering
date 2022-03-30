@@ -8,7 +8,7 @@ from torchdiffeq import odeint
 from tqdm import tqdm
 from sklearn.linear_model import LinearRegression
 
-from lib.nrde import NeuralCDE, NeuralODE
+from lib.nde import NeuralCDE, NeuralODE
 from lib.networks import LinearRegression, FFN
 from lib.utils import to_numpy, toggle
 from lib.augmentations import VisiTrans, apply_augmentations
@@ -123,7 +123,7 @@ class SigCWGAN(nn.Module):
                 z = self.nrde_filtration(batch_coeffs, t='interval')
                 # Monte Carlo
                 z_mc = z[:,-1,:].repeat(mc_samples, 1)
-                _, pred = self.node_gen(z0=z_mc, t=t_future)
+                pred = self.node_gen(z0=z_mc, t=t_future)
                 sig_pred_ce = compute_sig(depth=self.depth+1, x=pred).reshape(mc_samples, *batch_sig_x_real.shape).mean(0)
                 loss = sigcwgan_loss(batch_sig_x_real, sig_pred_ce)
                 loss.backward()
