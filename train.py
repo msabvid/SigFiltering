@@ -77,11 +77,9 @@ def plot(device: str,
     sigcwgan.nrde_filtration.load_state_dict(res['nrde_filtration'])
     sigcwgan.node_gen.load_state_dict(res['node_gen'])
 
-    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12,3))
-    ax[0].plot(res['loss_xy'])
-    ax[0].set_title('Loss xy')
-    ax[1].plot(res['loss_gen'])
-    ax[1].set_title('loss gen')
+    fig, ax = plt.subplots(figsize=(6,3))
+    ax.plot(res['loss_gen'])
+    ax.set_title('loss gen')
     fig.tight_layout()
     fig.savefig(os.path.join(base_dir, 'loss.pdf'))
     
