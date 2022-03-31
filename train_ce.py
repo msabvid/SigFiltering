@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from itertools import product
 
 from lib.conditional_expectation import ConditionalExpectation
-from lib.data import sdeint
+from lib.data import linear_sdeint as sdeint
 from lib.utils import to_numpy, set_seed
 
 mpl.rcParams['axes.grid'] = True
@@ -23,7 +23,7 @@ def main(device: str,
          T: float,
          n_steps: int,
          window_length: int,
-         base_dir: str,
+         results_path: str,
          m: int,
          **kwargs):
 
@@ -47,7 +47,7 @@ def main(device: str,
     ce.fit(num_epochs=num_epochs, t_future=t_future, batch_size=200)
 
     # save
-    ce.save(os.path.join(base_dir, 'res.pth.tar'))
+    ce.save(os.path.join(results_path, 'res.pth.tar'))
 
 
 
@@ -62,7 +62,7 @@ if __name__=='__main__':
     parser.add_argument('--seed', default=1, type=int)
 
     parser.add_argument('--num_epochs', default=100, type=int)
-    parser.add_argument('--depth', default=3, type=int)
+    parser.add_argument('--depth', default=4, type=int)
     parser.add_argument('--T', default=1., type=float)
     parser.add_argument('--n_steps', default=100, type=int, help="number of steps in time discrretisation")
     parser.add_argument('--window_length', default=10, type=int, help="lag in fine time discretisation to create coarse time discretisation")
@@ -85,6 +85,6 @@ if __name__=='__main__':
         results_path = os.path.join(args.base_dir, 'ce', 'seed{}'.format(seed), 'm={}'.format(m))
         if not os.path.exists(results_path):
             os.makedirs(results_path)
-        config['base_dir'] = results_path
+        config['results_path'] = results_path
         config['m'] = m
         main(**config)

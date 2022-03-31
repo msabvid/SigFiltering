@@ -31,7 +31,7 @@ def D(t: float):
     return 1
 
 
-def linear_sdeint(x0, y0, ts, F: Callable, C: Callable, G: Callable, D: Callable):
+def linear_sdeint(x0, y0, ts, F: Callable=F, C: Callable=C, G: Callable=G, D: Callable=D):
     """
     Linear SDE solver using Euler scheme
     
@@ -80,7 +80,7 @@ def func_riccati(t, y, F: Callable, C: Callable, G: Callable, D: Callable):
 
 
 
-def kalman_filter(obs: torch.Tensor, x0: torch.Tensor, ts: torch.Tensor, F: Callable, C: Callable, G: Callable, D: Callable):
+def kalman_filter(obs: torch.Tensor, x0: torch.Tensor, ts: torch.Tensor, F: Callable=F, C: Callable=C, G: Callable=G, D: Callable=D):
     """
     Kalman filter: Let \hat X_t := E(X_t | F_t^Y) where X_t is the state and Y_t is the observation 
     d \hat_X = (F(t) - (G^2(t)S(t))/D^2(t) ) * \hat X_t dt + (G(t)S(t))/D^2(t) dY_t ; \hat X_0 = E(X_0)

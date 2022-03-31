@@ -86,7 +86,8 @@ class ODEFunc(nn.Module):
     def forward(self, t, z):
         # z has shape (batch, hidden_channels)
         t = t * torch.ones(z.shape[0], 1, device=z.device)
-        return self.net(t,self.z0)
+        return self.net(t,self._z0)
+        #return self.net(t, z)
 
 
 
@@ -102,7 +103,7 @@ class NeuralODE(nn.Module):
             sizes = [hidden_channels, 20, output_channels]
         self.gen = gen
         
-        self.initial = FFN(sizes=[hidden_channels+1, 20, output_channels])# +1 is because of input noise
+        self.initial = FFN(sizes=sizes)# +1 is because of input noise
         self.func = ODEFunc(output_channels)
         #self.readout = torch.nn.Linear(hidden_channels, output_channels)
 
