@@ -19,7 +19,7 @@ from lib.utils import to_numpy
 
 
 def F(t: float):
-    return 0.1
+    return 0.1 * (1+t)
 
 def G(t: float):
     return 0.2

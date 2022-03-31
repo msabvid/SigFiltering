@@ -21,7 +21,7 @@ class CDEFunc(nn.Module):
         self.input_channels = input_channels
         self.hidden_channels = hidden_channels
         
-        self.net = FFN(sizes=[hidden_channels+1, 128, input_channels * hidden_channels], output_activation=nn.Tanh)
+        self.net = FFN(sizes=[hidden_channels+1, 20, input_channels * hidden_channels], output_activation=nn.Tanh)
 
     def forward(self, t, z):
         # z has shape (batch, hidden_channels)
@@ -71,7 +71,7 @@ class ODEFunc(nn.Module):
         super().__init__()
         self.hidden_channels = hidden_channels
         
-        self.net = FFN(sizes=[hidden_channels + 1, 128, hidden_channels])
+        self.net = FFN(sizes=[hidden_channels + 1, 20, hidden_channels], activation=nn.Tanh)
         #self.net = FFN(sizes=[1, 128, hidden_channels])
         self._z0 = None
 
@@ -86,8 +86,8 @@ class ODEFunc(nn.Module):
     def forward(self, t, z):
         # z has shape (batch, hidden_channels)
         t = t * torch.ones(z.shape[0], 1, device=z.device)
-        return self.net(t,self._z0)
-        #return self.net(t, z)
+        #return self.net(t,self._z0)
+        return self.net(t, z)
 
 
 

@@ -40,8 +40,8 @@ def main(device: str,
                         t=t,
                         window_length=window_length)
     sigcwgan.to(device)
-    t_future = t[n_steps//2:n_steps//2+20]
-    sigcwgan.fit(num_epochs=num_epochs, t_future=t_future, mc_samples=100, batch_size=200)
+    t_future = t[n_steps//2:]#n_steps//2+20]
+    sigcwgan.fit(num_epochs=num_epochs, t_future=t_future, mc_samples=1000, batch_size=200, filename = os.path.join(results_path, 'res.pth.tar'))
     sigcwgan.save(os.path.join(results_path, 'res.pth.tar'))
 
 
