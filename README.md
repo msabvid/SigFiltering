@@ -87,5 +87,6 @@ Plots are saved in the value given to `args.base_dir`, which is `numerical_resul
         - Sampling from an unnormalised density (MALA, MCMC, Langevin?)
    
 - Jumps in the diffusion proces --> the generator will need to be changed
+- Control problems...
 
  
