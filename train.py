@@ -29,8 +29,8 @@ def main(device: str,
     # We generate the data
     print("Generating the data...")
     t = torch.linspace(0,T,n_steps+1).to(device)
-    x0 = torch.ones(10000, device=device)
-    y0 = torch.ones_like(x0)
+    x0 = torch.randn(10000, device=device)
+    y0 = torch.randn_like(x0)
     xy = sdeint(x0,y0,t)
 
     # SigCWGAN

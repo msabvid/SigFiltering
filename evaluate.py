@@ -34,8 +34,8 @@ def main(device: str,
     # We generate the data
     print("Generating the data...")
     t = torch.linspace(0,T,n_steps+1).to(device)
-    x0 = torch.ones(10, device=device)
-    y0 = torch.ones_like(x0)
+    x0 = torch.randn(10, device=device)
+    y0 = torch.randn_like(x0)
     xy = sdeint(x0,y0,t)
     x_ce = kalman_filter(obs = xy[...,1].unsqueeze(2), x0=x0, ts=t, F=F, C=C, G=G, D=D)
     x_ce = to_numpy(x_ce)
@@ -98,7 +98,7 @@ def main(device: str,
         ax.set_xlabel('time')
         ax.legend()
         fig.tight_layout()
-        fig.savefig(os.path.join(base_dir, 'result_{}.pdf'.format(i)))
+        fig.savefig(os.path.join(base_dir, 'result_{}.jpg'.format(i)))
         plt.close()
         
         fig, ax = plt.subplots(figsize=(6,3))
