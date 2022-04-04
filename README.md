@@ -23,6 +23,7 @@ The goal of filtering and prediction is to derive and analyze the quantities
 
 ![filtering prediction](images_readme/ce.png)
 
+i.e. we train a generator that is able to sample from the conditional law, and we approximate the above quantities using averages and law of large numbers. 
 
 ## The method
 For this, we use the [Conditional Sig-Wasserstein GAN](https://arxiv.org/abs/2006.05421), using the following Neural Differential Equations for the Generator
@@ -86,9 +87,9 @@ Plots are saved in the value given to `args.base_dir`, which is `numerical_resul
 
 
 ### TODOs
-- Code the splitting-up method to evaluate:
-        - PDE solver (FEM (in a grid of points) or DL in higher dims) on teh Zakai equation
-        - Sampling from an unnormalised density (MALA, MCMC, Langevin? --> need the gradient of the sol of the zakai equation, ugh)
+- Code the splitting-up method to evaluate
+    - PDE solver (FEM (in a grid of points) or DL in higher dims) on teh Zakai equation
+    - Sampling from an unnormalised density (MALA, MCMC, Langevin? --> need the gradient of the sol of the zakai equation, ugh)
 - Solve the forward kolmogorov method
    
 - Jumps in the diffusion proces --> the generator will need to be changed
