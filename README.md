@@ -92,7 +92,7 @@ Plots are saved in the value given to `args.base_dir`, which is `numerical_resul
     - Sampling from an unnormalised density (MALA, MCMC, Langevin? --> need the gradient of the sol of the zakai equation, ugh)
 - Solve the forward kolmogorov method
    
-- Jumps in the diffusion proces --> the generator will need to be changed
+- Jumps in the diffusion proces --> the generator will need to be changed. There is always interpolation in the CDE/rough neural differential equation, so eventually everything is always of bounded variation.... ODE-RNN method for the generator? What about the discriminator?
 - Control problems...
 
  
