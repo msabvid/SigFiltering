@@ -51,16 +51,16 @@ if __name__=='__main__':
     
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('--base_dir', default='./numerical_results/', type=str)
-    parser.add_argument('--device', default=0, type=int)
+    parser.add_argument('--base_dir', default='./numerical_results/', type=str, help='base dir for results')
+    parser.add_argument('--device', default=0, type=int, help='gpu id if cuda is available')
     parser.add_argument('--use_cuda', action='store_true', default=True)
     parser.add_argument('--seed', default=1, type=int)
 
     parser.add_argument('--num_epochs', default=100, type=int)
-    parser.add_argument('--depth', default=4, type=int)
+    parser.add_argument('--depth', default=4, type=int, help='depth of signature')
     parser.add_argument('--T', default=1., type=float)
-    parser.add_argument('--n_steps', default=100, type=int, help="number of steps in time discrretisation")
-    parser.add_argument('--window_length', default=10, type=int, help="lag in fine time discretisation to create coarse time discretisation")
+    parser.add_argument('--n_steps', default=100, type=int, help="number of steps in time discretisation")
+    parser.add_argument('--window_length', default=10, type=int, help="window length used in log-ODE method")
 
     args = parser.parse_args()
 
