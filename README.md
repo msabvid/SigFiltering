@@ -87,8 +87,9 @@ Plots are saved in the value given to `args.base_dir`, which is `numerical_resul
 
 ### TODOs
 - Code the splitting-up method to evaluate:
-        - PDE solver (FEM or DL in higher dims)
-        - Sampling from an unnormalised density (MALA, MCMC, Langevin?)
+        - PDE solver (FEM (in a grid of points) or DL in higher dims) on teh Zakai equation
+        - Sampling from an unnormalised density (MALA, MCMC, Langevin? --> need the gradient of the sol of the zakai equation, ugh)
+- Solve the forward kolmogorov method
    
 - Jumps in the diffusion proces --> the generator will need to be changed
 - Control problems...
