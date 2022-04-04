@@ -2,7 +2,17 @@
 
 Code for the paper [Learning the conditional law: signatures and conditional GANs in filtering and prediction of diffusion processes](https://arxiv.org/abs/2204.00611).
 Abstract:
-        We consider the filtering and prediction problem for a diffusion process. The signal and observation are modeled by stochastic differential equations (SDEs) driven by Wiener processes. In classical estimation theory, measure-valued stochastic partial differential equations (SPDEs) are derived for the filtering and prediction measures. These equations can be hard to solve numerically. We provide an approximation algorithm using conditional generative adversarial networks (GANs) and signatures, an object from rough path theory. The signature of a sufficiently smooth path determines the path completely. In some cases, GANs based on signatures have been shown to efficiently approximate the law of a stochastic process. In this paper we extend this method to approximate the prediction measure conditional to noisy observation. We use controlled differential equations (CDEs) as universal approximators to propose an estimator for the conditional and prediction law. We show well-posedness in providing a rigorous mathematical framework. Numerical results show the efficiency of our algorithm.
+
+           We consider the filtering and prediction problem for a diffusion process. The signal and observation are modeled by stochastic differential
+           equations (SDEs) driven by Wiener processes. In classical estimation theory, measure-valued stochastic partial differential equations (SPDEs)
+           are derived for the filtering and prediction measures. These equations can be hard to solve numerically. We provide an approximation algorithm
+           using conditional generative adversarial networks (GANs) and signatures, an object from rough path theory. The signature of a sufficiently
+           smooth path determines the path completely. In some cases, GANs based on signatures have been shown to efficiently approximate the law of a 
+           stochastic process. In this paper we extend this method to approximate the prediction measure conditional to noisy observation. We use 
+           controlled differential equations (CDEs) as universal approximators to propose an estimator for the conditional and prediction law. We show
+           well-posedness in providing a rigorous mathematical framework. Numerical results show the efficiency of our algorithm.
+
+
 
 ## The problem
 Consider the signal-observation system where the coefficients are assumed to be regular enough (see Assumption 2.1 of the [paper](https://arxiv.org/abs/2204.00611). 
@@ -51,7 +61,7 @@ optional arguments:
                         window length used in log-ODE method
 
 ```
-*Evaluating*. Right now there is only evaluation in the linear case, using the Kalman filter.
+*Evaluation*. Right now there is only evaluation in the linear case, using the Kalman filter.
 ```python
 usage: evaluate.py [-h] [--base_dir BASE_DIR] [--device DEVICE] [--use_cuda] [--seed SEED] [--depth DEPTH] [--T T] [--n_steps N_STEPS] [--window_length WINDOW_LENGTH]
 
@@ -68,9 +78,14 @@ optional arguments:
                         window length used in log-ODE method
 ```
 Plots are saved in the value given to `args.base_dir`, which is `numerical_results` by default. 
-![result](images_readme.result.jpg)
+![result](images_readme/result.jpg)
 
 
-
+### TODOs, maybe not so interesting
+- Code the splitting-up method to evaluate:
+        - PDE solver (FEM or DL in higher dims)
+        - Sampling from an unnormalised density (MALA, MCMC, Langevin?)
+   
+- Jumps in the diffusion proces --> the generator will need to be changed
 
  
