@@ -30,7 +30,7 @@ For this, we use the [Conditional Sig-Wasserstein GAN](https://arxiv.org/abs/200
 
 ![generator](images_readme/generator.png)
 
-The generator is well posed. (3) is motivate by the Martingale representation of an Ft^Y-adapted process, and (4) parametrizes the rate of change of the mean prospective transition [Lemma 4.2](https://arxiv.org/abs/2006.05421).
+The generator is well posed. (3) is motivate by the Martingale representation of an Ft^Y-adapted process, and (4) parametrizes the rate of change of the mean prospective transition, [Lemma 4.2](https://arxiv.org/abs/2006.05421).
 
 ## The code
 Relevant scripts:
