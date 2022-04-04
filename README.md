@@ -16,14 +16,17 @@ Abstract:
 
 ## The problem
 Consider the signal-observation system where the coefficients are assumed to be regular enough (see Assumption 2.1 of the [paper](https://arxiv.org/abs/2204.00611). 
+
 ![linear sde](images_readme/sde.png)
 
 The goal of filtering and prediction is to derive and analyze the quantities
+
 ![filtering prediction](images_readme/ce.png)
 
 
 ## The method
 For this, we use the [Conditional Sig-Wasserstein GAN](https://arxiv.org/abs/2006.05421), using the following Neural Differential Equations for the Generator
+
 ![generator](images_readme/generator.png)
 
 The generator is well posed. (3) is motivate by the Martingale representation of an Ft^Y-adapted process, and (4) parametrizes the rate of change of the mean prospective transition [Lemma 4.2](https://arxiv.org/abs/2006.05421).
@@ -78,10 +81,11 @@ optional arguments:
                         window length used in log-ODE method
 ```
 Plots are saved in the value given to `args.base_dir`, which is `numerical_results` by default. 
+
 ![result](images_readme/result.jpg)
 
 
-### TODOs, maybe not so interesting
+### TODOs
 - Code the splitting-up method to evaluate:
         - PDE solver (FEM or DL in higher dims)
         - Sampling from an unnormalised density (MALA, MCMC, Langevin?)
