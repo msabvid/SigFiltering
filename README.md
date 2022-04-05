@@ -1,18 +1,29 @@
 # Learning the conditional Law. Filtering and Prediction
 
-Code for the paper [Learning the conditional law: signatures and conditional GANs in filtering and prediction of diffusion processes](https://arxiv.org/abs/2204.00611).
+Code for the paper [Learning the conditional law: signatures and conditional GANs in filtering and prediction of diffusion processes](https://arxiv.org/abs/2204.00611), submitted at CDC 2022.
+
 Abstract:
 
-           We consider the filtering and prediction problem for a diffusion process. The signal and observation are modeled by stochastic differential
-           equations (SDEs) driven by Wiener processes. In classical estimation theory, measure-valued stochastic partial differential equations (SPDEs)
-           are derived for the filtering and prediction measures. These equations can be hard to solve numerically. We provide an approximation algorithm
-           using conditional generative adversarial networks (GANs) and signatures, an object from rough path theory. The signature of a sufficiently
-           smooth path determines the path completely. In some cases, GANs based on signatures have been shown to efficiently approximate the law of a 
-           stochastic process. In this paper we extend this method to approximate the prediction measure conditional to noisy observation. We use 
-           controlled differential equations (CDEs) as universal approximators to propose an estimator for the conditional and prediction law. We show
-           well-posedness in providing a rigorous mathematical framework. Numerical results show the efficiency of our algorithm.
+       We consider the filtering and prediction problem for a diffusion process. The signal and observation are modeled by stochastic differential
+       equations (SDEs) driven by Wiener processes. In classical estimation theory, measure-valued stochastic partial differential equations (SPDEs)
+       are derived for the filtering and prediction measures. These equations can be hard to solve numerically. We provide an approximation algorithm
+       using conditional generative adversarial networks (GANs) and signatures, an object from rough path theory. The signature of a sufficiently
+       smooth path determines the path completely. In some cases, GANs based on signatures have been shown to efficiently approximate the law of a 
+       stochastic process. In this paper we extend this method to approximate the prediction measure conditional to noisy observation. We use 
+       controlled differential equations (CDEs) as universal approximators to propose an estimator for the conditional and prediction law. We show
+       well-posedness in providing a rigorous mathematical framework. Numerical results show the efficiency of our algorithm.
 
 
+    @misc{https://doi.org/10.48550/arxiv.2204.00611,
+      doi = {10.48550/ARXIV.2204.00611},
+      url = {https://arxiv.org/abs/2204.00611},
+      author = {Germ, Fabian and Sabate-Vidales, Marc},
+      keywords = {Machine Learning (stat.ML), Machine Learning (cs.LG), Optimization and Control (math.OC), FOS: Computer and information sciences, FOS: Computer and information sciences, FOS: Mathematics, FOS: Mathematics},
+      title = {Learning the conditional law: signatures and conditional GANs in filtering and prediction of diffusion processes},
+      publisher = {arXiv},
+      year = {2022},
+      copyright = {arXiv.org perpetual, non-exclusive license} 
+    }
 
 ## The problem
 Consider the signal-observation system where the coefficients are assumed to be regular enough (see Assumption 2.1 of the [paper](https://arxiv.org/abs/2204.00611). 
