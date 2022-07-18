@@ -1,6 +1,6 @@
 # Learning the conditional Law. Filtering and Prediction
 
-Code for the paper [Learning the conditional law: signatures and conditional GANs in filtering and prediction of diffusion processes](https://arxiv.org/abs/2204.00611), submitted at CDC 2022.
+Code for the paper [Learning the conditional law: signatures and conditional GANs in filtering and prediction of diffusion processes](https://arxiv.org/abs/2204.00611), accepted at CDC 2022.
 
 Abstract:
 
