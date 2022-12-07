@@ -37,11 +37,11 @@ The goal of filtering and prediction is to derive and analyze the quantities
 for any continuous \varphi, i.e. we train a generator that is able to sample from the conditional law, and we approximate the above quantities using averages and law of large numbers. 
 
 ## The method
-For this, we use the [Conditional Sig-Wasserstein GAN](https://arxiv.org/abs/2006.05421), using the following Neural Differential Equations for the Generator
+We use the [Conditional Sig-Wasserstein GAN](https://arxiv.org/abs/2006.05421), using the following Neural Differential Equations for the Generator. The generator is divided in two, the *past* and the *future*. Fix the *present* at time *s*. Then the generator is given by the two models below.
 
 ![generator](images_readme/generator.png)
 
-The generator is well posed. (3) is motivate by the Martingale representation of an Ft^Y-adapted process, and (4) parametrizes the rate of change of the mean prospective transition, [Lemma 4.2](https://arxiv.org/abs/2006.05421).
+The generator is well posed. (3) is can be interpreted as the process carrying the information known up until the present *s*. (4) can be interpreted as the generation of possible future scenarios, given the information known at the present *s*. More specifically, we prove the form it should actually have in [Lemma 4.2](https://arxiv.org/abs/2006.05421).
 
 ## The code
 Relevant scripts:
